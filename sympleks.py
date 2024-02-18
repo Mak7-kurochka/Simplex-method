@@ -10,12 +10,24 @@ class LPP:
                 maxx_val = cj_zj[i]
                 maxx_num = i
         return maxx_num
-    def change_cb(self,column,matrix,b,c_new,c_b,zm_baz):
-        minn_val = max(b)
-        for i in range(len(b)):
-            if matrix[i][column] > 0 and b[i]/matrix[i][column] < minn_val:
-                minn_val = b[i]/matrix[i][column]
-                minn = i
+    def change_cb(self,column,mmatrix,b,c_new,c_b,zm_baz,matrix):
+        if matrix is None:
+            minn_val = max(b)*100000
+            minn = 0
+
+            for i in range(len(b)):
+                if mmatrix[i][column] > 0 and b[i]/mmatrix[i][column] < minn_val:
+                    minn_val = b[i]/mmatrix[i][column]
+                    minn = i
+        else:
+            minn_val = max(b)*100000
+            minn = 0
+
+            for i in range(len(b)):
+                if matrix[i][column] > 0 and b[i]/matrix[i][column] < minn_val:
+                    minn_val = b[i]/matrix[i][column]
+                    minn = i
+
         c_b[minn] = c_new[column]
         zm_baz[minn] = column
         return [c_b,zm_baz]
@@ -38,7 +50,7 @@ class LPP:
         zm_baz = np.arange(len(c),len(c_new))
         z_j = np.zeros(n+m)
         cj_zj = c_new - z_j
-        return self.go(A,I,b,c_b,c_new,zm_baz, cj_zj)
+        return self.go(A,I,b,c_b,c_new,zm_baz, cj_zj,b)
 
     def sympleks(self,c,restr):
         if self.direction == 'max':
@@ -57,16 +69,13 @@ class LPP:
             i += 1
         return B
 
-    def go(self,A,I,b,c_b,cj,zm_baz,cj_zj):
+    def go(self,A,I,b,c_b,cj,zm_baz,cj_zj,Binv_b,matrix=None):
         column = self.find_change(cj_zj)
-        if column < A.shape[1]:
-            res = self.change_cb(column,A,b,cj,c_b,zm_baz)
-            c_b = res[0]
-            zm_baz = res[1]
-        else:
-            res = self.change_cb(column,A,b,cj,c_b,zm_baz)
-            c_b = res[0]
-            zm_baz = res[1]
+        
+        res = self.change_cb(column,np.concatenate((A,I.T),axis=1),Binv_b,cj,c_b,zm_baz,matrix)
+        c_b = res[0]
+        zm_baz = res[1]
+        
         B = self.biult_B(A,I,c_b,zm_baz)
         Binv = np.linalg.inv(B)
         Binv_A = np.matmul(Binv, A)
@@ -76,8 +85,11 @@ class LPP:
         cb_Binv_b = np.matmul(c_b, Binv_b)
         row = np.concatenate((cb_Binv_A,cb_Binv))
         cj_zj = cj - row
+        for i in range(len(cj_zj)):
+            if cj_zj[i] < 0.0001 and cj_zj[i] > 0:
+                cj_zj[i] = 0
         if False in (cj_zj<=0):
-            return self.go(A,I,b,c_b,cj,zm_baz,cj_zj)
+            return self.go(A,I,b,c_b,cj,zm_baz,cj_zj,Binv_b,np.concatenate((Binv_A,Binv),axis=1))
         else:
             return f'FC:{cb_Binv_b}, x:{zm_baz}, number:{Binv_b}'
 
@@ -100,4 +112,4 @@ class LPP:
         return self.built_first_table(c,restr)
 
 problem = LPP('max')
-print(problem.sympleks([30,20], [[[2,1],1000], [[3,3],2400],[[1.5], 600]]))
+print(problem.sympleks([21,25,30,40,50], [[[2,4,6,8,10],10000], [[10,11,18,20,30],20000],]))
